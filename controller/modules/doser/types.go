@@ -10,14 +10,18 @@ import (
 type DosingRegiment struct {
 	Enable   bool     `json:"enable"`
 	Schedule Schedule `json:"schedule"`
-	Duration float64  `json:"duration"`
-	Speed    float64  `json:"speed"`
+	// The volume to be dosed. Value to be configured through calibration.
+	Volume float64 `json:"volume"`
 }
 
 //swagger:model doserCalibrationDetails
 type CalibrationDetails struct {
-	Speed    float64 `json:"speed"`
-	Duration float64 `json:"duration"`
+	Volume float64 `json:"volume"`
+}
+
+type CalibrationResult struct {
+	Details        CalibrationDetails `json:"details"`
+	MeasuredVolume float64            `json:"measuredVolume"`
 }
 
 type Schedule struct {

@@ -13,11 +13,25 @@ import (
 
 // swagger:model pump
 type Pump struct {
-	ID       string         `json:"id"`
-	Name     string         `json:"name"`
-	Jack     string         `json:"jack"`
-	Pin      int            `json:"pin"`
-	Regiment DosingRegiment `json:"regiment"`
+	ID                 string              `json:"id"`
+	Name               string              `json:"name"`
+	TimeConfig         *TimeConfig         `json:"time"`
+	FirmataStepsConfig *FirmataStepsConfig `json:"firmataSteps"`
+	Calibration        *CalibrationResult  `json:"calibration"`
+	Regiment           DosingRegiment      `json:"regiment"`
+}
+
+type TimeConfig struct {
+	Jack  string  `json:"jack"`
+	Pin   int     `json:"pin"`
+	Speed float64 `json:"speed"`
+}
+
+type FirmataStepsConfig struct {
+	Firmata      string  `json:"firmata"`
+	DeviceID     int     `json:"deviceID"`
+	Speed        float32 `json:"speed"`
+	Acceleration float32 `json:"acceleration"`
 }
 
 func (c *Controller) Get(id string) (Pump, error) {
@@ -57,16 +71,29 @@ func (c *Controller) List() ([]Pump, error) {
 }
 
 func (c *Controller) Calibrate(id string, cal CalibrationDetails) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	p, err := c.Get(id)
 	if err != nil {
 		return err
 	}
+
+	var firmata *connectors.Firmata
+	if cfg := p.FirmataStepsConfig; cfg != nil {
+		firmata, err = c.getOrCreateFirmata(cfg.Firmata)
+		if err != nil {
+			return err
+		}
+	}
+
 	r := &Runner{
-		pump:  &p,
-		jacks: c.jacks,
+		pump:    &p,
+		jacks:   c.jacks,
+		firmata: firmata,
 	}
 	log.Println("doser subsystem: calibration run for:", p.Name)
-	go r.Dose(cal.Speed, cal.Duration)
+	go r.Dose(cal.Volume)
 	return nil
 }
 
@@ -91,8 +118,8 @@ func (c *Controller) Update(id string, p Pump) error {
 }
 
 func Validate(p Pump) error {
-	if p.Regiment.Duration < 0 {
-		return fmt.Errorf("Invalid Duration")
+	if p.Regiment.Volume < 0 {
+		return fmt.Errorf("Invalid Volume")
 	}
 	return nil
 }
@@ -133,10 +160,11 @@ func (c *Controller) Delete(id string) error {
 	return c.c.Store().Delete(Bucket, id)
 }
 
-func (p *Pump) Runner(jacks *connectors.Jacks, t telemetry.StatsManager) cron.Job {
+func (p *Pump) Runner(jacks *connectors.Jacks, firmata *connectors.Firmata, t telemetry.StatsManager) cron.Job {
 	return &Runner{
 		pump:     p,
 		jacks:    jacks,
+		firmata:  firmata,
 		statsMgr: t,
 	}
 }

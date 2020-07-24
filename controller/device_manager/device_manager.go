@@ -34,13 +34,14 @@ import (
 */
 
 type DeviceManager struct {
-	bus     i2c.Bus
-	store   storage.Store
-	jacks   *connectors.Jacks
-	outlets *connectors.Outlets
-	inlets  *connectors.Inlets
-	ais     *connectors.AnalogInputs
-	drivers *drivers.Drivers
+	bus      i2c.Bus
+	store    storage.Store
+	jacks    *connectors.Jacks
+	firmatas *connectors.Firmatas
+	outlets  *connectors.Outlets
+	inlets   *connectors.Inlets
+	ais      *connectors.AnalogInputs
+	drivers  *drivers.Drivers
 }
 
 func New(s settings.Settings, store storage.Store) *DeviceManager {
@@ -67,17 +68,21 @@ func New(s settings.Settings, store storage.Store) *DeviceManager {
 		//logError(store, "driver-init", err.Error())
 	}
 	return &DeviceManager{
-		bus:     bus,
-		drivers: drvrs,
-		jacks:   connectors.NewJacks(drvrs, store),
-		outlets: connectors.NewOutlets(drvrs, store),
-		inlets:  connectors.NewInlets(drvrs, store),
-		ais:     connectors.NewAnalogInputs(drvrs, store),
+		bus:      bus,
+		drivers:  drvrs,
+		jacks:    connectors.NewJacks(drvrs, store),
+		firmatas: connectors.NewFirmatas(store),
+		outlets:  connectors.NewOutlets(drvrs, store),
+		inlets:   connectors.NewInlets(drvrs, store),
+		ais:      connectors.NewAnalogInputs(drvrs, store),
 	}
 }
 
 func (dm *DeviceManager) Setup() error {
 	if err := dm.jacks.Setup(); err != nil {
+		return err
+	}
+	if err := dm.firmatas.Setup(); err != nil {
 		return err
 	}
 	if err := dm.outlets.Setup(); err != nil {
@@ -106,6 +111,10 @@ func (dm *DeviceManager) Jacks() *connectors.Jacks {
 	return dm.jacks
 }
 
+func (dm *DeviceManager) Firmatas() *connectors.Firmatas {
+	return dm.firmatas
+}
+
 func (dm *DeviceManager) Drivers() *drivers.Drivers {
 	return dm.drivers
 }
@@ -114,6 +123,7 @@ func (dm *DeviceManager) LoadAPI(r *mux.Router) {
 	dm.outlets.LoadAPI(r)
 	dm.inlets.LoadAPI(r)
 	dm.jacks.LoadAPI(r)
+	dm.firmatas.LoadAPI(r)
 	dm.ais.LoadAPI(r)
 	dm.drivers.LoadAPI(r)
 }

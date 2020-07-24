@@ -11,6 +11,7 @@ require (
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/sessions v1.2.0
+	github.com/kerinin/gomata v0.0.0-20200715014932-4e04fcaf2cfe
 	github.com/kidoman/embd v0.0.0-20170508013040-d3d8c0c5c68d
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -23,6 +24,7 @@ require (
 	github.com/reef-pi/rpi v0.0.0-20200302080122-e460902484d9
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shirou/gopsutil v2.20.4+incompatible
+	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
 	go.etcd.io/bbolt v1.3.4
 	gopkg.in/yaml.v2 v2.3.0
 )

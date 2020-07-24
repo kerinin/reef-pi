@@ -21,24 +21,28 @@ const (
 )
 
 type Controller struct {
-	DevMode  bool
-	statsMgr telemetry.StatsManager
-	c        controller.Controller
-	mu       *sync.Mutex
-	runner   *cron.Cron
-	cronIDs  map[string]cron.EntryID
-	jacks    *connectors.Jacks
+	DevMode    bool
+	statsMgr   telemetry.StatsManager
+	c          controller.Controller
+	mu         *sync.Mutex
+	runner     *cron.Cron
+	cronIDs    map[string]cron.EntryID
+	jacks      *connectors.Jacks
+	firmatas   *connectors.Firmatas
+	firmataMap map[string]*connectors.Firmata
 }
 
 func New(devMode bool, c controller.Controller) (*Controller, error) {
 	return &Controller{
-		DevMode:  devMode,
-		jacks:    c.DM().Jacks(),
-		cronIDs:  make(map[string]cron.EntryID),
-		mu:       &sync.Mutex{},
-		runner:   cron.New(cron.WithParser(cron.NewParser(_cronParserSpec))),
-		statsMgr: c.Telemetry().NewStatsManager(UsageBucket),
-		c:        c,
+		DevMode:    devMode,
+		jacks:      c.DM().Jacks(),
+		firmatas:   c.DM().Firmatas(),
+		firmataMap: make(map[string]*connectors.Firmata),
+		cronIDs:    make(map[string]cron.EntryID),
+		mu:         &sync.Mutex{},
+		runner:     cron.New(cron.WithParser(cron.NewParser(_cronParserSpec))),
+		statsMgr:   c.Telemetry().NewStatsManager(UsageBucket),
+		c:          c,
 	}, nil
 }
 
@@ -78,10 +82,42 @@ func (c *Controller) Start() {
 	return
 }
 
-func (c *Controller) addToCron(p Pump) error {
+// NOTE: Caller must have locked c.mu
+func (c *Controller) getOrCreateFirmata(firmataID string) (*connectors.Firmata, error) {
+	var (
+		firmata *connectors.Firmata
+		found   bool
+		err     error
+	)
+
+	firmata, found = c.firmataMap[firmataID]
+	if !found {
+		firmata, err = c.firmatas.Get(firmataID)
+		if err != nil {
+			return nil, err
+		}
+		if err := firmata.Setup(); err != nil {
+			return nil, err
+		}
+		c.firmataMap[firmataID] = firmata
+	}
+
+	return firmata, nil
+}
+
+func (c *Controller) addToCron(p Pump) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	cronID, err := c.runner.AddJob(p.Regiment.Schedule.CronSpec(), p.Runner(c.jacks, c.statsMgr))
+
+	var firmata *connectors.Firmata
+	if cfg := p.FirmataStepsConfig; cfg != nil {
+		firmata, err = c.getOrCreateFirmata(cfg.Firmata)
+		if err != nil {
+			return err
+		}
+	}
+
+	cronID, err := c.runner.AddJob(p.Regiment.Schedule.CronSpec(), p.Runner(c.jacks, firmata, c.statsMgr))
 	if err != nil {
 		return err
 	}
@@ -108,7 +144,10 @@ func (c *Controller) InUse(depType, id string) ([]string, error) {
 			return deps, err
 		}
 		for _, d := range ds {
-			if d.Jack == id {
+			if d.TimeConfig == nil {
+				continue
+			}
+			if d.TimeConfig.Jack == id {
 				deps = append(deps, id)
 			}
 		}
