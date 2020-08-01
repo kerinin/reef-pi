@@ -30,6 +30,15 @@ type TimeConfig struct {
 type FirmataStepsConfig struct {
 	Firmata      string  `json:"firmata"`
 	DeviceID     int     `json:"deviceID"`
+	WireCount    byte    `json:"wireCount"`
+	StepType     byte    `json:"stepType"`
+	HasEnable    byte    `json:"hasEnable"`
+	Pin1         int     `json:"pin1"`
+	Pin2         int     `json:"pin2"`
+	Pin3         int     `json:"pin3"`
+	Pin4         int     `json:"pin4"`
+	EnablePin    int     `json:"enablePin"`
+	Invert       int     `json:"invert"`
 	Speed        float32 `json:"speed"`
 	Acceleration float32 `json:"acceleration"`
 }

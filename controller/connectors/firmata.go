@@ -28,6 +28,9 @@ func (f *Firmata) IsValid() error {
 	if _, err := os.Stat(f.SerialPath); os.IsNotExist(err) {
 		return fmt.Errorf("Serial path does not exist")
 	}
+	if f.BaudRate == 0 {
+		return fmt.Errorf("Baud Rate must be nonzero")
+	}
 	return nil
 }
 
@@ -37,11 +40,17 @@ func (f *Firmata) Setup() error {
 		return err
 	}
 
+	f.f = gomata.New()
+
 	err = f.f.Connect(port)
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (f *Firmata) StepperConfigure(devID int, wireCount gomata.WireCount, stepType gomata.StepType, hasEnable gomata.HasEnablePin, pin1 int, pin2 int, pin3 int, pin4 int, enablePin int, invert gomata.Inversions) error {
 	return nil
 }
 
